@@ -1,0 +1,12 @@
+{
+  "name": "m2p-marketplace",
+  "description": "Move2Play internal plugin marketplace for shared team tools and knowledge",
+  "plugins": [
+    {
+      "name": "m2p-operations",
+      "description": "Move2Play operations assistant with business context, product catalog, data sources, and query patterns",
+      "source": "./plugins/m2p-operations",
+      "category": "productivity"
+    }
+  ]
+}
