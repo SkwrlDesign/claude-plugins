@@ -4,28 +4,22 @@ Shared Claude Code skills for the Move2Play team.
 
 ## Setup (one-time)
 
-### 1. Install GitHub CLI
-```bash
-brew install gh
+Paste the following into Claude Code:
+
+```
+Set up the Move2Play plugin marketplace. Read my ~/.claude/settings.json file. If it doesn't exist, create it. Add the following to the "extraKnownMarketplaces" key (merge with any existing marketplaces, don't overwrite them):
+
+"m2p-marketplace": {
+  "source": {
+    "source": "github",
+    "repo": "SkwrlDesign/claude-plugins"
+  }
+}
+
+Then verify the file is valid JSON and confirm it worked.
 ```
 
-### 2. Log into GitHub
-```bash
-gh auth login
-```
-Follow the prompts — pick "GitHub.com", "HTTPS", and "Login with a web browser".
-
-### 3. Add the marketplace (in Claude Code)
-```
-/plugin marketplace add SkwrlDesign/claude-plugins
-```
-
-### 4. Install the plugin (in Claude Code)
-```
-/plugin install m2p-operations@m2p-marketplace
-```
-
-Done! Claude now has Move2Play operations context automatically.
+That's it! Claude will handle the rest. Restart Claude Code after setup.
 
 ## What's included
 
@@ -34,4 +28,4 @@ Done! Claude now has Move2Play operations context automatically.
 
 ## Updating
 
-When the team knowledge changes, an admin pushes updates to this repo. Team members get updates automatically, or can run `/plugin update` in Claude Code.
+When the team knowledge changes, an admin pushes updates to this repo. Team members get updates automatically on session start.
