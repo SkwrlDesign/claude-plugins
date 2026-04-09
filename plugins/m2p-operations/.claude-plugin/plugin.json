@@ -1,7 +1,7 @@
 {
   "name": "m2p-operations",
   "description": "Move2Play operations assistant — shared business context, product catalog, warehouse network, data sources, and query patterns for the whole team.",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "author": {
     "name": "Move2Play"
   }
