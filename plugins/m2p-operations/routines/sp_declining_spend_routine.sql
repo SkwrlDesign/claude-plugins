@@ -61,7 +61,7 @@ BEGIN
       SAFE_DIVIDE(w.post_cost_w, w.post_sales_w) AS post_acos,
       w.pre_cost_7d / 7 AS pre_cost_per_day,
       w.post_cost_w / NULLIF(LEAST(7, w.post_days_avail),0) AS post_cost_per_day,
-      (w.pre_cost_7d / 7) - (w.post_cost_w / NULLIF(LEAST(7, w.post_days_avail),0)) AS lost_dollars_per_day,
+      (w.pre_cost_7d / 7) - (w.post_cost_w / NULLIF(LEAST(7, w.post_days_avail),0)) AS lost_dollars_per_day_raw,
       SAFE_DIVIDE(w.pre_cost_7d, w.pre_clicks_7d)  AS pre_cpc,
       SAFE_DIVIDE(w.post_cost_w, w.post_clicks_w)  AS post_cpc
     FROM windows w
@@ -70,25 +70,26 @@ BEGIN
   )
 
   SELECT
-    s.change_date,
-    s.keyword_id                                            AS element_id,
-    e.campaign_name,
-    e.ad_group_name,
-    COALESCE(e.keyword_text, e.target_name)                 AS keyword,
-    e.match_type,
-    s.prev_bid,
-    s.new_bid,
-    s.bid_pct                                               AS bid_chg_pct,
-    s.pre_acos,
-    s.post_acos,
-    s.pre_cost_per_day,
-    s.post_cost_per_day,
-    s.lost_dollars_per_day,
-    s.pre_cpc,
-    s.post_cpc,
-    s.post_days,
-    s.cost_chg_pct,
-    s.clicks_chg_pct
+    FORMAT_DATE('%m-%d', s.change_date)                                                 AS date,
+    s.keyword_id                                                                        AS element_id,
+    e.campaign_name                                                                     AS campaign,
+    e.ad_group_name                                                                     AS ad_group,
+    COALESCE(e.keyword_text, e.target_name)                                             AS keyword,
+    e.match_type                                                                        AS `match`,
+    FORMAT('$%.2f→$%.2f', s.prev_bid, s.new_bid)                                        AS bid,
+    FORMAT('%.1f%%', s.bid_pct * 100)                                                   AS bid_change,
+    IF(s.post_acos IS NULL,
+       FORMAT('%.1f%% → — (%dd)', s.pre_acos * 100, s.post_days),
+       FORMAT('%.1f%% → %.1f%% (%dd)', s.pre_acos * 100, s.post_acos * 100, s.post_days)
+    )                                                                                   AS pre_to_post_acos,
+    FORMAT('$%.2f → $%.2f (%dd)', s.pre_cost_per_day, s.post_cost_per_day, s.post_days) AS pre_to_post_spend_per_day,
+    FORMAT('$%.2f', s.lost_dollars_per_day_raw)                                         AS lost_dollars_per_day,
+    IF(s.post_cpc IS NULL,
+       FORMAT('$%.2f → —', s.pre_cpc),
+       FORMAT('$%.2f → $%.2f', s.pre_cpc, s.post_cpc)
+    )                                                                                   AS pre_to_post_cpc,
+    FORMAT('%.1f%%', s.cost_chg_pct * 100)                                              AS cost_change,
+    FORMAT('%.1f%%', s.clicks_chg_pct * 100)                                            AS clicks_change
   FROM scored s
   INNER JOIN `move2play-cloud.sponsored_brands_products_bids.sp_enabled_kw_and_targets` e
     ON COALESCE(e.keyword_id, e.target_id) = s.keyword_id
@@ -99,6 +100,6 @@ BEGIN
     AND s.impr_chg_pct             <= -0.5
     AND s.impr_chg_pct             < s.bid_pct * 2
     AND s.pre_cost_per_day         > 5
-  ORDER BY s.lost_dollars_per_day DESC;
+  ORDER BY s.lost_dollars_per_day_raw DESC;
 
 END;
