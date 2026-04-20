@@ -23,10 +23,10 @@ Use this skill when the user asks to detect bid cuts that caused campaigns to st
 ## Output format
 
 **Table columns (in order):**
-`Date | Element ID | Campaign | Ad Group | Keyword | Match | Bid | Bid Δ | Pre ACOS → Post ACOS | Pre $/d → Post $/d | Pre CPC → Post CPC | Cost Δ | Clicks Δ`
+`Date | Element ID | Campaign | Ad Group | Keyword | Match | Bid | Bid Δ | Pre ACOS → Post ACOS | Pre $/d → Post $/d | Lost $/d | Pre CPC → Post CPC | Cost Δ | Clicks Δ`
 
 **Rules:**
-- Show top 10 cliffs sorted by gap severity (biggest disproportionate drop first).
+- Show top 10 cliffs sorted by **Lost $/d** (pre $/d minus post $/d) — biggest dollar loss first. This surfaces the most actionable revert candidates, not just the statistically most disproportionate drops.
 - Post-window columns (ACOS, $/d, CPC) annotated with `(Nd)` where N is days in post window (up to 7) when <7 full days are available.
 - Pre ACOS → Post ACOS as single combined cell; same for Pre $/d → Post $/d and Pre CPC → Post CPC.
 - Cost Δ and Clicks Δ are normalized to per-day rates so the comparison is fair when post window <7 days.
@@ -128,6 +128,7 @@ scored AS (
     SAFE_DIVIDE(w.post_cost_w, w.post_sales_w) AS post_acos,
     w.pre_cost_7d / 7 AS pre_cost_per_day,
     w.post_cost_w / NULLIF(LEAST(7, w.post_days_avail),0) AS post_cost_per_day,
+    (w.pre_cost_7d / 7) - (w.post_cost_w / NULLIF(LEAST(7, w.post_days_avail),0)) AS lost_dollars_per_day,
     SAFE_DIVIDE(w.pre_cost_7d, w.pre_clicks_7d)  AS pre_cpc,
     SAFE_DIVIDE(w.post_cost_w, w.post_clicks_w)  AS post_cpc
   FROM windows w
@@ -146,6 +147,7 @@ SELECT
   ROUND(s.post_acos*100,1) AS post_acos_pct,
   ROUND(s.pre_cost_per_day,2)  AS pre_cost_per_day,
   ROUND(s.post_cost_per_day,2) AS post_cost_per_day,
+  ROUND(s.lost_dollars_per_day,2) AS lost_dollars_per_day,
   ROUND(s.pre_cpc,2)  AS pre_cpc,
   ROUND(s.post_cpc,2) AS post_cpc,
   s.post_days,
@@ -160,7 +162,7 @@ WHERE UPPER(e.keyword_status) = 'ENABLED'
   AND s.pre_acos < {MAX_PRE_ACOS}
   AND s.impr_chg_pct <= -0.5
   AND s.impr_chg_pct < s.bid_pct * 2
-ORDER BY (s.impr_chg_pct - s.bid_pct) ASC
+ORDER BY s.lost_dollars_per_day DESC
 LIMIT 10;
 ```
 
