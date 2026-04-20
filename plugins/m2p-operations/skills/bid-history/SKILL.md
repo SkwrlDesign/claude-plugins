@@ -41,7 +41,10 @@ All tables live in project `move2play-cloud`, dataset `sponsored_brands_products
 |---|---|---|
 | Keyword metadata (campaign/ad group/keyword text/placement factor) | `SP_Dynamic_Data_1_Live` | `CAST(keyword_id AS STRING)` |
 | Daily bid changes (hourly granularity, pick last per day) | `sp_kw_bid_history` | `keyword_id` (STRING) |
-| Daily cost/clicks/sales | `sp_kw_targeting` | `CAST(keyword_id AS STRING)` |
+| Daily cost/clicks/sales — keyword targets | `sp_kw_targeting` | `CAST(keyword_id AS STRING)` |
+| Daily cost/clicks/sales — Auto-campaign targets (loose-match, close-match, substitutes, complements) | `sp_adgroup_targeting` | `target_id` (STRING) = keyword_id |
+
+Auto-campaign synthetic keyword_ids do NOT appear in `sp_kw_targeting` — they appear in `sp_adgroup_targeting` keyed by `target_id`. The query must UNION ALL both sources so the report works for both manual keywords and Auto targets.
 
 Note: `sp_kw_bid_history.sc_bid` is the **base bid** (the "bid to use"). `sp_kw_bid_history.bid` is the hourly day-parted bid — do not use that for the daily snapshot. Take the last `sc_bid` of each day.
 
@@ -63,16 +66,21 @@ WITH bid_daily AS (
     AND DATE(created_at) >= DATE_SUB(CURRENT_DATE('America/Los_Angeles'), INTERVAL {LOOKBACK_DAYS}+2 DAY)
   GROUP BY d
 ),
-perf_daily AS (
-  SELECT
-    date AS d,
-    SUM(cost)   AS cost,
-    SUM(clicks) AS clicks,
-    SUM(sales)  AS sales
+perf_union AS (
+  SELECT date AS d, cost, clicks, sales
   FROM `move2play-cloud.sponsored_brands_products_bids.sp_kw_targeting`
   WHERE CAST(keyword_id AS STRING) = '{KEYWORD_ID}'
     AND date >= DATE_SUB(CURRENT_DATE('America/Los_Angeles'), INTERVAL {LOOKBACK_DAYS}+2 DAY)
-  GROUP BY date
+  UNION ALL
+  SELECT date AS d, cost, clicks, sales_7d AS sales
+  FROM `move2play-cloud.sponsored_brands_products_bids.sp_adgroup_targeting`
+  WHERE target_id = '{KEYWORD_ID}'
+    AND date >= DATE_SUB(CURRENT_DATE('America/Los_Angeles'), INTERVAL {LOOKBACK_DAYS}+2 DAY)
+),
+perf_daily AS (
+  SELECT d, SUM(cost) AS cost, SUM(clicks) AS clicks, SUM(sales) AS sales
+  FROM perf_union
+  GROUP BY d
 )
 SELECT
   b.d,
